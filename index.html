@@ -50,7 +50,7 @@
         .header-bar { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; overflow: hidden; display: flex; justify-content: space-between; align-items: center;}
         .header-bar h2 { border: none; margin: 0; padding: 0; color: #333;}
         
-        ul { list-style-type: none; padding: 0; }
+        ul { list-style-type: none; padding: 0; margin: 0;}
         li { background: #fff; border: 1px solid #ddd; margin-bottom: 10px; padding: 15px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
         
         .alert { padding: 15px; border-radius: 4px; margin-bottom: 15px; font-weight: 500;}
@@ -59,6 +59,7 @@
         
         .reason-input { width: 250px; padding: 8px; margin-right: 5px; border: 1px solid #ccc; border-radius: 4px;}
         .action-group { display: flex; align-items: center; gap: 8px; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white;}
     </style>
 </head>
 <body>
@@ -135,14 +136,25 @@
             </div>
 
             <div id="professor-dashboard" class="hidden">
-                <h3>1. Student Portal Access Approvals</h3>
+                <h3>1. Manage Courses</h3>
                 <div class="card">
-                    <p>Approve or deny students attempting to enter the thesis topics list.</p>
-                    <ul id="prof-student-list"></ul>
+                    <div class="form-group">
+                        <label>Create New Course</label>
+                        <div class="action-group">
+                            <input type="text" id="new-course-name" placeholder="e.g. Computer Science Thesis 2026">
+                            <button class="btn-success" onclick="createCourse()">Create</button>
+                        </div>
+                    </div>
+                    <h4 style="margin-top: 20px; color: #444;">My Courses</h4>
+                    <ul id="prof-course-list"></ul>
                 </div>
 
-                <h3>2. Manage Thesis Topics</h3>
+                <h3>2. Manage Course Topics</h3>
                 <div class="card">
+                    <div class="form-group">
+                        <label>Select Course</label>
+                        <select id="prof-course-select"></select>
+                    </div>
                     <div class="form-group">
                         <label id="topic-form-title">New Topic Title</label>
                         <input type="text" id="new-topic-title" placeholder="Enter academic topic title...">
@@ -151,22 +163,32 @@
                         <button id="topic-submit-btn" onclick="submitTopic()">Publish Topic</button>
                         <button id="topic-cancel-btn" class="btn-neutral hidden" onclick="cancelTopicEdit()">Cancel Edit</button>
                     </div>
-                    <h4 style="margin-top: 20px; color: #444;">Available Topics</h4>
+                    <h4 style="margin-top: 20px; color: #444;">Topics in My Courses</h4>
                     <ul id="prof-topics-list"></ul>
                 </div>
 
-                <h3>3. Thesis Registrations Review</h3>
+                <h3>3. Student Course Access Approvals</h3>
+                <div class="card">
+                    <p>Approve or deny students attempting to enter your specific courses.</p>
+                    <ul id="prof-student-list"></ul>
+                </div>
+
+                <h3>4. Thesis Registrations Review</h3>
                 <div class="card">
                     <ul id="prof-registrations-list"></ul>
                 </div>
             </div>
 
             <div id="student-dashboard" class="hidden">
-                <button onclick="attemptViewTopics()" style="font-size: 16px; padding: 15px; margin-bottom: 10px; width: 100%; background-color: var(--brand-primary);">View Graduation Thesis Topics</button>
-                <div id="student-msg" class="alert hidden"></div>
+                <h3>1. Course Directory</h3>
+                <div class="card">
+                    <p>Request access to a professor's course to view their available thesis topics.</p>
+                    <ul id="student-course-list"></ul>
+                </div>
                 
-                <div id="student-topics-section" class="hidden" style="margin-top: 20px;">
-                    <h3>Available Research Topics</h3>
+                <h3 style="margin-top: 20px;">2. Available Research Topics</h3>
+                <div class="card" id="student-topics-section">
+                    <p>You must be approved for a course to see its topics.</p>
                     <ul id="student-topics-list"></ul>
                 </div>
 
@@ -180,7 +202,6 @@
 </div>
 
 <script type="module">
-    // 1. Import Firebase Core and Firestore Databases
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -193,22 +214,18 @@
         appId: "1:859702311722:web:867a8e50571ef54b19fc53"
     };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const cloudDb = getFirestore(app);
 
-    // Core Data Variables
     let db = null;
     let currentUser = null;
     let editingUser = null;
     let editingTopicId = null;
 
-    // --- DOM UTILITIES ---
     function el(id) { return document.getElementById(id); }
     function show(id) { el(id).classList.remove('hidden'); }
     function hide(id) { el(id).classList.add('hidden'); }
 
-    // --- DATABASE CONNECTION ---
     async function initializeDatabase() {
         try {
             const docRef = doc(cloudDb, "portal", "mainData");
@@ -216,18 +233,20 @@
 
             if (docSnap.exists()) {
                 db = docSnap.data();
+                // Migration for new architecture
+                if(!db.courses) db.courses = [];
+                if(!db.courseAccess) db.courseAccess = [];
             } else {
-                // First time running: Create the default database
                 db = {
                     users: [{ username: "admin", password: "123", role: "admin" }],
+                    courses: [],
                     topics: [],
-                    registrations: [],
-                    access: {}
+                    courseAccess: [], // {student: 'username', courseId: 'id', status: 'Pending'}
+                    registrations: []
                 };
                 await saveDb();
             }
 
-            // Hide loading, show login
             hide('loading-screen');
             show('login-view');
         } catch (error) {
@@ -238,7 +257,6 @@
 
     async function saveDb() {
         const docRef = doc(cloudDb, "portal", "mainData");
-        // We do not 'await' this so the UI updates instantly for the user
         setDoc(docRef, db).catch(err => alert("Failed to save to cloud: " + err.message));
     }
 
@@ -272,7 +290,6 @@
         show('login-view');
     };
 
-    // --- ROUTER / RENDERER ---
     window.renderDashboard = function() {
         if (currentUser.role === 'admin') {
             el('user-greeting').innerText = `Welcome, System Administrator`;
@@ -287,8 +304,6 @@
                 window.renderProfView();
             } else if (currentUser.role === 'student') {
                 show('student-dashboard');
-                hide('student-topics-section');
-                hide('student-msg');
                 window.renderStudentView();
             }
         }
@@ -323,7 +338,6 @@
             const newUser = { username, password, role };
             if (role !== 'admin') { newUser.name = name; newUser.id = idVal; }
             db.users.push(newUser);
-            if (role === 'student') db.access[username] = 'Pending';
             el('admin-msg').innerText = "Account created successfully!";
         }
         
@@ -336,7 +350,6 @@
     window.editUser = function(username) {
         const user = db.users.find(u => u.username === username);
         editingUser = user.username;
-        
         el('admin-form-title').innerText = `Edit Account: ${user.username}`;
         el('new-role').value = user.role;
         el('new-username').value = user.username;
@@ -369,8 +382,12 @@
         if (!confirm(`Are you sure you want to permanently delete the user '${username}'?`)) return;
 
         db.users = db.users.filter(u => u.username !== username);
-        delete db.access[username]; 
+        db.courseAccess = db.courseAccess.filter(a => a.student !== username); 
         db.registrations = db.registrations.filter(r => r.student !== username); 
+        // If professor deleted, clean up courses/topics
+        const coursesToDelete = db.courses.filter(c => c.professor === username).map(c => c.id);
+        db.courses = db.courses.filter(c => c.professor !== username);
+        db.topics = db.topics.filter(t => !coursesToDelete.includes(t.courseId));
 
         saveDb();
         if (editingUser === username) window.cancelUserEdit();
@@ -397,39 +414,65 @@
     };
 
     // --- PROFESSOR FUNCTIONS ---
+    window.createCourse = function() {
+        const name = el('new-course-name').value.trim();
+        if (!name) return alert("Course name cannot be empty.");
+        db.courses.push({ id: Date.now().toString(), title: name, professor: currentUser.username });
+        saveDb();
+        el('new-course-name').value = '';
+        window.renderProfView();
+    };
+
+    window.deleteCourse = function(courseId) {
+        if(!confirm("Delete this course? All topics and registrations under it will be removed.")) return;
+        db.courses = db.courses.filter(c => c.id !== courseId);
+        db.topics = db.topics.filter(t => t.courseId !== courseId);
+        db.courseAccess = db.courseAccess.filter(ca => ca.courseId !== courseId);
+        saveDb();
+        window.renderProfView();
+    };
+
     window.renderProfView = function() {
-        const students = db.users.filter(u => u.role === 'student');
-        const sList = el('prof-student-list');
-        sList.innerHTML = students.length ? '' : '<p>No students found.</p>';
+        // 1. My Courses
+        const myCourses = db.courses.filter(c => c.professor === currentUser.username);
+        const cList = el('prof-course-list');
+        cList.innerHTML = myCourses.length ? '' : '<p>You have not created any courses yet.</p>';
         
-        students.forEach(s => {
-            const status = db.access[s.username] || 'Pending';
+        const courseSelect = el('prof-course-select');
+        courseSelect.innerHTML = '';
+
+        myCourses.forEach(c => {
+            // Populate list
             const li = document.createElement('li');
-            let statusColor = status === 'Approved' ? '#27ae60' : (status === 'Denied' ? '#c0392b' : '#f39c12');
-            
             li.innerHTML = `
-                <div style="flex-grow: 1;">
-                    <strong>${s.name}</strong> (${s.id})<br>
-                    Status: <strong style="color: ${statusColor};">${status}</strong>
-                </div>
-                ${status === 'Pending' ? `
-                    <div class="action-group">
-                        <button class="btn-success" onclick="setStudentAccess('${s.username}', 'Approved')">Approve</button>
-                        <button class="btn-danger" onclick="setStudentAccess('${s.username}', 'Denied')">Deny</button>
-                    </div>` : `
-                    <div class="action-group">
-                        <button class="btn-neutral" onclick="setStudentAccess('${s.username}', 'Pending')">Reset Status</button>
-                    </div>`}
+                <span style="font-weight:bold;">${c.title}</span>
+                <button class="btn-danger" onclick="deleteCourse('${c.id}')">Delete</button>
             `;
-            sList.appendChild(li);
+            cList.appendChild(li);
+
+            // Populate Dropdown for Topic creation
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.innerText = c.title;
+            courseSelect.appendChild(opt);
         });
 
+        el('topic-submit-btn').disabled = myCourses.length === 0;
+
+        // 2. My Topics
+        const myCourseIds = myCourses.map(c => c.id);
         const tList = el('prof-topics-list');
-        tList.innerHTML = db.topics.length ? '' : '<p>No topics created yet.</p>';
-        db.topics.forEach(t => {
+        const myTopics = db.topics.filter(t => myCourseIds.includes(t.courseId));
+        tList.innerHTML = myTopics.length ? '' : '<p>No topics created in your courses yet.</p>';
+        
+        myTopics.forEach(t => {
+            const courseName = db.courses.find(c => c.id === t.courseId)?.title || "Unknown Course";
             const li = document.createElement('li');
             li.innerHTML = `
-                <span style="flex-grow: 1; font-weight: bold; color: var(--brand-primary); font-size: 15px;">${t.title}</span>
+                <div style="flex-grow: 1;">
+                    <span style="font-weight: bold; color: var(--brand-primary); font-size: 15px;">${t.title}</span><br>
+                    <small>Course: ${courseName}</small>
+                </div>
                 <div class="action-group">
                     <button class="btn-warning" onclick="editTopic('${t.id}')">Edit</button>
                     <button class="btn-danger" onclick="deleteTopic('${t.id}')">Delete</button>
@@ -438,11 +481,48 @@
             tList.appendChild(li);
         });
 
+        // 3. Course Access Approvals
+        const sList = el('prof-student-list');
+        const pendingAccess = db.courseAccess.filter(a => myCourseIds.includes(a.courseId));
+        sList.innerHTML = pendingAccess.length ? '' : '<p>No students have requested access to your courses.</p>';
+        
+        pendingAccess.forEach((acc, index) => {
+            const studentInfo = db.users.find(u => u.username === acc.student);
+            const courseInfo = db.courses.find(c => c.id === acc.courseId);
+            const li = document.createElement('li');
+            let statusColor = acc.status === 'Approved' ? '#27ae60' : (acc.status === 'Denied' ? '#c0392b' : '#f39c12');
+            
+            li.innerHTML = `
+                <div style="flex-grow: 1;">
+                    <strong>${studentInfo?.name || acc.student}</strong> requested access to <strong>${courseInfo?.title}</strong><br>
+                    Status: <strong style="color: ${statusColor};">${acc.status}</strong>
+                </div>
+                ${acc.status === 'Pending' ? `
+                    <div class="action-group">
+                        <button class="btn-success" onclick="processCourseAccess('${acc.student}', '${acc.courseId}', 'Approved')">Approve</button>
+                        <button class="btn-danger" onclick="processCourseAccess('${acc.student}', '${acc.courseId}', 'Denied')">Deny</button>
+                    </div>` : `
+                    <div class="action-group">
+                        <button class="btn-neutral" onclick="processCourseAccess('${acc.student}', '${acc.courseId}', 'Pending')">Reset Status</button>
+                    </div>`}
+            `;
+            sList.appendChild(li);
+        });
+
+        // 4. Thesis Registrations
         const rList = el('prof-registrations-list');
-        rList.innerHTML = db.registrations.length ? '' : '<p>No registrations yet.</p>';
-        db.registrations.forEach((reg, index) => {
+        // Get all registrations for topics that belong to this professor's courses
+        const myRegistrations = db.registrations.filter(r => {
+            const topic = db.topics.find(t => t.id === r.topicId);
+            return topic && myCourseIds.includes(topic.courseId);
+        });
+
+        rList.innerHTML = myRegistrations.length ? '' : '<p>No registrations for your topics yet.</p>';
+        myRegistrations.forEach((reg) => {
+            const index = db.registrations.indexOf(reg); // Keep global index for updates
             const student = db.users.find(u => u.username === reg.student);
             const topic = db.topics.find(t => t.id === reg.topicId);
+            const course = db.courses.find(c => c.id === topic.courseId);
             const li = document.createElement('li');
             
             let actionHtml = '';
@@ -467,7 +547,8 @@
             li.innerHTML = `
                 <div style="flex-grow: 1; margin-right: 15px;">
                     <strong>Student:</strong> ${student ? student.name : reg.student} <br>
-                    <strong>Topic:</strong> ${topic ? topic.title : '<span style="color:#e74c3c">Topic Deleted</span>'}
+                    <strong>Topic:</strong> ${topic ? topic.title : 'Deleted Topic'} <br>
+                    <small>Course: ${course ? course.title : 'Unknown'}</small>
                 </div>
                 ${actionHtml}
             `;
@@ -475,21 +556,31 @@
         });
     };
 
-    window.setStudentAccess = function(username, status) {
-        db.access[username] = status;
+    window.processCourseAccess = function(studentId, courseId, status) {
+        const accessRecord = db.courseAccess.find(a => a.student === studentId && a.courseId === courseId);
+        if (accessRecord) {
+            accessRecord.status = status;
+        } else {
+            db.courseAccess.push({ student: studentId, courseId: courseId, status: status });
+        }
         saveDb();
         window.renderProfView();
     };
 
     window.submitTopic = function() {
         const title = el('new-topic-title').value.trim();
+        const courseId = el('prof-course-select').value;
         if (!title) return alert("Topic title cannot be empty.");
+        if (!courseId) return alert("You must create a course first.");
         
         if (editingTopicId) {
             const topic = db.topics.find(t => t.id === editingTopicId);
-            if (topic) topic.title = title;
+            if (topic) {
+                topic.title = title;
+                topic.courseId = courseId;
+            }
         } else {
-            db.topics.push({ id: Date.now().toString(), title: title });
+            db.topics.push({ id: Date.now().toString(), courseId: courseId, title: title });
         }
         
         saveDb();
@@ -502,6 +593,7 @@
         editingTopicId = topicId;
         el('topic-form-title').innerText = "Edit Topic Title";
         el('new-topic-title').value = topic.title;
+        el('prof-course-select').value = topic.courseId;
         el('topic-submit-btn').innerText = "Update Topic";
         show('topic-cancel-btn');
     };
@@ -544,6 +636,70 @@
 
     // --- STUDENT FUNCTIONS ---
     window.renderStudentView = function() {
+        // 1. Render Course List
+        const cList = el('student-course-list');
+        cList.innerHTML = db.courses.length ? '' : '<p>No courses currently available.</p>';
+        
+        // Track which courses the student is approved for to show topics
+        let approvedCourseIds = [];
+
+        db.courses.forEach(c => {
+            const prof = db.users.find(u => u.username === c.professor);
+            const accessRequest = db.courseAccess.find(a => a.student === currentUser.username && a.courseId === c.id);
+            const li = document.createElement('li');
+            
+            let btnHtml = '';
+            if (!accessRequest) {
+                btnHtml = `<button class="btn-success" onclick="requestCourseAccess('${c.id}')">Request Access</button>`;
+            } else {
+                let sColor = accessRequest.status === 'Approved' ? '#27ae60' : (accessRequest.status === 'Denied' ? '#c0392b' : '#f39c12');
+                btnHtml = `<span style="color:${sColor}; font-weight:bold;">${accessRequest.status}</span>`;
+                if(accessRequest.status === 'Approved') {
+                    approvedCourseIds.push(c.id);
+                }
+            }
+
+            li.innerHTML = `
+                <div style="flex-grow: 1;">
+                    <strong style="font-size: 16px;">${c.title}</strong><br>
+                    <small>Professor: ${prof ? prof.name : c.professor}</small>
+                </div>
+                <div class="action-group">${btnHtml}</div>
+            `;
+            cList.appendChild(li);
+        });
+
+        // 2. Render Available Topics (Only for approved courses)
+        const tList = el('student-topics-list');
+        tList.innerHTML = '';
+        
+        const hasExistingReg = db.registrations.find(r => r.student === currentUser.username);
+
+        if (approvedCourseIds.length === 0) {
+            tList.innerHTML = '<p></p>';
+        } else {
+            const availableTopics = db.topics.filter(t => approvedCourseIds.includes(t.courseId));
+            if(availableTopics.length === 0) {
+                tList.innerHTML = '<p>Your approved courses currently have no topics published.</p>';
+            } else {
+                availableTopics.forEach(t => {
+                    const course = db.courses.find(c => c.id === t.courseId);
+                    const li = document.createElement('li');
+                    let btnHtml = hasExistingReg 
+                        ? `<span style="color:#7f8c8d; font-size: 13px; font-weight: 500;">(Already Registered for a topic)</span>` 
+                        : `<button class="btn-success" onclick="registerForTopic('${t.id}')">Register for Topic</button>`;
+                    li.innerHTML = `
+                        <div>
+                            <span style="font-weight: 500; font-size: 15px; color: #333;">${t.title}</span><br>
+                            <small style="color: #7f8c8d;">Course: ${course.title}</small>
+                        </div> 
+                        ${btnHtml}`;
+                    tList.appendChild(li);
+                });
+            }
+        }
+
+        // 3. Render Current Registration Status
         const myReg = db.registrations.find(r => r.student === currentUser.username);
         const statDiv = el('my-registration-status');
         
@@ -553,10 +709,16 @@
                 statDiv.innerHTML = `<span style="color: #e74c3c;"><strong>Alert:</strong> The topic you registered for was deleted by a professor. Please register for a new topic.</span>`;
                 db.registrations = db.registrations.filter(r => r.topicId !== myReg.topicId);
                 saveDb();
-                window.attemptViewTopics(); 
+                setTimeout(window.renderStudentView, 100); 
             } else {
+                const course = db.courses.find(c => c.id === topic.courseId);
                 let sColor = myReg.status === 'Approved' ? '#27ae60' : (myReg.status === 'Denied' ? '#c0392b' : '#f39c12');
-                let statHtml = `<div style="font-size: 16px;"><strong>Topic:</strong> <span style="color: var(--brand-primary); font-weight: 500;">${topic.title}</span><br><strong>Status:</strong> <span style="color:${sColor}; font-weight:bold;">${myReg.status}</span></div>`;
+                let statHtml = `
+                    <div style="font-size: 16px;">
+                        <strong>Course:</strong> ${course ? course.title : 'Unknown'}<br>
+                        <strong>Topic:</strong> <span style="color: var(--brand-primary); font-weight: 500;">${topic.title}</span><br>
+                        <strong>Status:</strong> <span style="color:${sColor}; font-weight:bold;">${myReg.status}</span>
+                    </div>`;
                 
                 if (myReg.status === 'Denied' && myReg.reason) {
                     statHtml += `<div style="margin-top: 8px; padding: 10px; background: #fdf2f2; border-left: 4px solid #c0392b;"><strong>Professor's Note:</strong> <span style="color:#c0392b;">${myReg.reason}</span></div>`;
@@ -566,53 +728,22 @@
                 statDiv.innerHTML = statHtml;
             }
         } else {
-            statDiv.innerHTML = "No active registrations.";
+            statDiv.innerHTML = "No active topic registrations.";
         }
     };
 
-    window.attemptViewTopics = function() {
-        const msgEl = el('student-msg');
-        const status = db.access[currentUser.username] || 'Pending';
-        msgEl.className = 'alert hidden';
-
-        if (status === 'Approved') {
-            hide('student-msg');
-            show('student-topics-section');
-            window.renderStudentTopics();
-        } else if (status === 'Denied') {
-            msgEl.classList.add('alert-danger');
-            msgEl.innerHTML = `<strong>Access Denied:</strong> Your access to view thesis topics has been restricted by the faculty.`;
-            show('student-msg');
-            hide('student-topics-section');
-        } else {
-            msgEl.classList.add('alert-warning');
-            msgEl.innerText = "Please wait for faculty approval to view and register for research topics.";
-            show('student-msg');
-            hide('student-topics-section');
-        }
-    };
-
-    window.renderStudentTopics = function() {
-        const list = el('student-topics-list');
-        list.innerHTML = db.topics.length ? '' : '<p>No research topics published yet.</p>';
-        const hasExistingReg = db.registrations.find(r => r.student === currentUser.username);
-
-        db.topics.forEach(t => {
-            const li = document.createElement('li');
-            let btnHtml = hasExistingReg 
-                ? `<span style="color:#7f8c8d; font-size: 13px; font-weight: 500;">(Already Registered)</span>` 
-                : `<button class="btn-success" onclick="registerForTopic('${t.id}')">Register</button>`;
-            li.innerHTML = `<span style="font-weight: 500; font-size: 15px; color: #333;">${t.title}</span> ${btnHtml}`;
-            list.appendChild(li);
-        });
-    };
+    window.requestCourseAccess = function(courseId) {
+        db.courseAccess.push({ student: currentUser.username, courseId: courseId, status: 'Pending' });
+        saveDb();
+        alert("Access request sent to the professor.");
+        window.renderStudentView();
+    }
 
     window.registerForTopic = function(topicId) {
         db.registrations.push({ student: currentUser.username, topicId: topicId, status: 'Pending', reason: '' });
         saveDb();
         alert("Registration submitted to faculty successfully!");
         window.renderStudentView();
-        window.attemptViewTopics(); 
     };
     
     window.cancelRegistration = function() {
@@ -620,10 +751,8 @@
         db.registrations = db.registrations.filter(r => r.student !== currentUser.username);
         saveDb();
         window.renderStudentView();
-        window.attemptViewTopics();
     };
 
-    // Kickstart the app by fetching from Firebase
     initializeDatabase();
 
 </script>
