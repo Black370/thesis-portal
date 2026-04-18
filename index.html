@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graduation Thesis Portal</title>
+    <style>
+        /* BRANDING THEME */
+        :root {
+            --brand-primary: #C00418;
+            --brand-primary-dark: #9A0313;
+            --brand-accent: #F39C12;
+            --brand-accent-dark: #D68910;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }
+        
+        /* Header */
+        .brand-header { background-color: var(--brand-primary); color: white; padding: 30px 20px; text-align: center; border-bottom: 5px solid var(--brand-accent); }
+        .brand-header h1 { margin: 0; font-size: 28px; text-transform: uppercase; letter-spacing: 1px; color: white;}
+        .brand-header p { margin: 5px 0 0 0; font-size: 16px; opacity: 0.9; }
+
+        .content-area { padding: 20px 30px 30px 30px; }
+        
+        h2, h3 { color: var(--brand-primary); border-bottom: 2px solid #eee; padding-bottom: 8px;}
+        .hidden { display: none !important; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #444;}
+        input[type="text"], input[type="password"], select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;}
+        input:focus, select:focus { border-color: var(--brand-primary); outline: none; box-shadow: 0 0 5px rgba(192, 4, 24, 0.3); }
+        
+        /* Buttons */
+        button { background-color: var(--brand-primary); color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-size: 14px; margin-top: 5px; font-weight: bold; transition: background 0.2s; }
+        button:hover { background-color: var(--brand-primary-dark); }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        
+        /* Semantic Buttons */
+        .btn-danger { background-color: #e74c3c; }
+        .btn-danger:hover { background-color: #c0392b; }
+        .btn-success { background-color: #2ecc71; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-neutral { background-color: #95a5a6; }
+        .btn-neutral:hover { background-color: #7f8c8d; }
+        .btn-warning { background-color: var(--brand-accent); color: white;}
+        .btn-warning:hover { background-color: var(--brand-accent-dark); }
+        
+        .logout-btn { float: right; background-color: #7f8c8d; margin-top: 15px;}
+        .card { border: 1px solid #ddd; padding: 20px; border-radius: 5px; margin-bottom: 20px; background-color: #fafafa; border-left: 4px solid var(--brand-primary); }
+        .header-bar { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; overflow: hidden; display: flex; justify-content: space-between; align-items: center;}
+        .header-bar h2 { border: none; margin: 0; padding: 0; color: #333;}
+        
+        ul { list-style-type: none; padding: 0; }
+        li { background: #fff; border: 1px solid #ddd; margin-bottom: 10px; padding: 15px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+        
+        .alert { padding: 15px; border-radius: 4px; margin-bottom: 15px; font-weight: 500;}
+        .alert-warning { background-color: #fcf8e3; color: #8a6d3b; border: 1px solid #faebcc; }
+        .alert-danger { background-color: #f2dede; color: #a94442; border: 1px solid #ebccd1; }
+        
+        .reason-input { width: 250px; padding: 8px; margin-right: 5px; border: 1px solid #ccc; border-radius: 4px;}
+        .action-group { display: flex; align-items: center; gap: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="brand-header">
+        <h1>Graduation Thesis Portal</h1>
+        <p>University Academic System</p>
+    </div>
+
+    <div class="content-area">
+        <div id="loading-screen" class="card" style="text-align: center; margin: 20px auto; max-width: 400px; border-left: 4px solid #7f8c8d;">
+            <h2 style="border:none;">Connecting to Database...</h2>
+            <p>Please wait.</p>
+        </div>
+
+        <div id="login-view" class="hidden">
+            <div class="card" style="max-width: 400px; margin: 20px auto; border-left: 4px solid var(--brand-accent);">
+                <h2 style="text-align: center; color: #333; border: none; margin-top: 0;">Portal Login</h2>
+                <div id="login-error" class="alert alert-warning hidden">Invalid credentials.</div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="login-username" placeholder="Enter your username...">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="login-password">
+                </div>
+                <button onclick="login()" style="width: 100%; font-size: 16px; padding: 12px;">Sign In</button>
+            </div>
+        </div>
+
+        <div id="dashboard-view" class="hidden">
+            <div class="header-bar">
+                <h2 id="user-greeting"></h2>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+
+            <div id="admin-dashboard" class="hidden">
+                <h3 id="admin-form-title">Create New Account</h3>
+                <div class="card">
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select id="new-role" onchange="toggleAdminFields()">
+                            <option value="student">Student</option>
+                            <option value="professor">Professor</option>
+                            <option value="admin">System Admin</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="new-username">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="new-password">
+                    </div>
+                    <div class="form-group" id="name-group">
+                        <label>Full Name</label>
+                        <input type="text" id="new-name">
+                    </div>
+                    <div class="form-group" id="id-group">
+                        <label>Official ID Number</label>
+                        <input type="text" id="new-id">
+                    </div>
+                    <div class="action-group">
+                        <button id="admin-submit-btn" class="btn-success" onclick="submitAccount()">Create Account</button>
+                        <button id="admin-cancel-btn" class="btn-neutral hidden" onclick="cancelUserEdit()">Cancel Edit</button>
+                    </div>
+                    <p id="admin-msg" style="color: #27ae60; font-weight: bold; margin-top: 10px;"></p>
+                </div>
+                <h3>Manage Directory</h3>
+                <ul id="user-list"></ul>
+            </div>
+
+            <div id="professor-dashboard" class="hidden">
+                <h3>1. Student Portal Access Approvals</h3>
+                <div class="card">
+                    <p>Approve or deny students attempting to enter the thesis topics list.</p>
+                    <ul id="prof-student-list"></ul>
+                </div>
+
+                <h3>2. Manage Thesis Topics</h3>
+                <div class="card">
+                    <div class="form-group">
+                        <label id="topic-form-title">New Topic Title</label>
+                        <input type="text" id="new-topic-title" placeholder="Enter academic topic title...">
+                    </div>
+                    <div class="action-group">
+                        <button id="topic-submit-btn" onclick="submitTopic()">Publish Topic</button>
+                        <button id="topic-cancel-btn" class="btn-neutral hidden" onclick="cancelTopicEdit()">Cancel Edit</button>
+                    </div>
+                    <h4 style="margin-top: 20px; color: #444;">Available Topics</h4>
+                    <ul id="prof-topics-list"></ul>
+                </div>
+
+                <h3>3. Thesis Registrations Review</h3>
+                <div class="card">
+                    <ul id="prof-registrations-list"></ul>
+                </div>
+            </div>
+
+            <div id="student-dashboard" class="hidden">
+                <button onclick="attemptViewTopics()" style="font-size: 16px; padding: 15px; margin-bottom: 10px; width: 100%; background-color: var(--brand-primary);">View Graduation Thesis Topics</button>
+                <div id="student-msg" class="alert hidden"></div>
+                
+                <div id="student-topics-section" class="hidden" style="margin-top: 20px;">
+                    <h3>Available Research Topics</h3>
+                    <ul id="student-topics-list"></ul>
+                </div>
+
+                <h3 style="margin-top: 30px;">My Registration Status</h3>
+                <div class="card" id="my-registration-status">
+                    No active registrations.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    // 1. Import Firebase Core and Firestore Databases
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDr4ujXS43yLVLVsfjUi2xur2vzMlutKfE",
+        authDomain: "thesis-portal-66989.firebaseapp.com",
+        projectId: "thesis-portal-66989",
+        storageBucket: "thesis-portal-66989.firebasestorage.app",
+        messagingSenderId: "859702311722",
+        appId: "1:859702311722:web:867a8e50571ef54b19fc53"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const cloudDb = getFirestore(app);
+
+    // Core Data Variables
+    let db = null;
+    let currentUser = null;
+    let editingUser = null;
+    let editingTopicId = null;
+
+    // --- DOM UTILITIES ---
+    function el(id) { return document.getElementById(id); }
+    function show(id) { el(id).classList.remove('hidden'); }
+    function hide(id) { el(id).classList.add('hidden'); }
+
+    // --- DATABASE CONNECTION ---
+    async function initializeDatabase() {
+        try {
+            const docRef = doc(cloudDb, "portal", "mainData");
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                db = docSnap.data();
+            } else {
+                // First time running: Create the default database
+                db = {
+                    users: [{ username: "admin", password: "123", role: "admin" }],
+                    topics: [],
+                    registrations: [],
+                    access: {}
+                };
+                await saveDb();
+            }
+
+            // Hide loading, show login
+            hide('loading-screen');
+            show('login-view');
+        } catch (error) {
+            console.error("Firebase connection error:", error);
+            el('loading-screen').innerHTML = `<h2 style="color:#c0392b; border:none;">Database Connection Failed</h2><p style="font-weight:bold;">Did you replace the Firebase keys in the code?</p><p style="font-size:12px; color:#666;">Error: ${error.message}</p>`;
+        }
+    }
+
+    async function saveDb() {
+        const docRef = doc(cloudDb, "portal", "mainData");
+        // We do not 'await' this so the UI updates instantly for the user
+        setDoc(docRef, db).catch(err => alert("Failed to save to cloud: " + err.message));
+    }
+
+    // --- AUTHENTICATION ---
+    window.login = function() {
+        const un = el('login-username').value.trim();
+        const pw = el('login-password').value.trim();
+        const user = db.users.find(u => u.username === un && u.password === pw);
+
+        if (user) {
+            currentUser = user;
+            hide('login-view');
+            hide('login-error');
+            show('dashboard-view');
+            el('login-username').value = '';
+            el('login-password').value = '';
+            window.renderDashboard();
+        } else {
+            show('login-error');
+        }
+    };
+
+    window.logout = function() {
+        currentUser = null;
+        editingUser = null;
+        editingTopicId = null;
+        hide('dashboard-view');
+        hide('admin-dashboard');
+        hide('professor-dashboard');
+        hide('student-dashboard');
+        show('login-view');
+    };
+
+    // --- ROUTER / RENDERER ---
+    window.renderDashboard = function() {
+        if (currentUser.role === 'admin') {
+            el('user-greeting').innerText = `Welcome, System Administrator`;
+            show('admin-dashboard');
+            window.cancelUserEdit(); 
+            window.renderAdminView();
+        } else {
+            el('user-greeting').innerText = `Welcome, ${currentUser.name} (${currentUser.id})`;
+            if (currentUser.role === 'professor') {
+                show('professor-dashboard');
+                window.cancelTopicEdit(); 
+                window.renderProfView();
+            } else if (currentUser.role === 'student') {
+                show('student-dashboard');
+                hide('student-topics-section');
+                hide('student-msg');
+                window.renderStudentView();
+            }
+        }
+    };
+
+    // --- ADMIN FUNCTIONS ---
+    window.toggleAdminFields = function() {
+        const role = el('new-role').value;
+        if (role === 'admin') { hide('name-group'); hide('id-group'); } 
+        else { show('name-group'); show('id-group'); }
+    };
+
+    window.submitAccount = function() {
+        const role = el('new-role').value;
+        const username = el('new-username').value.trim();
+        const password = el('new-password').value.trim();
+        const name = el('new-name').value.trim();
+        const idVal = el('new-id').value.trim();
+
+        if (!username || !password) return alert("Username and password required.");
+        if (role !== 'admin' && (!name || !idVal)) return alert("Name and ID are required for students and professors.");
+
+        if (editingUser) {
+            const user = db.users.find(u => u.username === editingUser);
+            user.password = password;
+            user.role = role;
+            if (role === 'admin') { delete user.name; delete user.id; } 
+            else { user.name = name; user.id = idVal; }
+            el('admin-msg').innerText = "Account updated successfully!";
+        } else {
+            if (db.users.find(u => u.username === username)) return alert("Username already exists.");
+            const newUser = { username, password, role };
+            if (role !== 'admin') { newUser.name = name; newUser.id = idVal; }
+            db.users.push(newUser);
+            if (role === 'student') db.access[username] = 'Pending';
+            el('admin-msg').innerText = "Account created successfully!";
+        }
+        
+        saveDb();
+        setTimeout(() => el('admin-msg').innerText = "", 3000);
+        window.cancelUserEdit();
+        window.renderAdminView();
+    };
+
+    window.editUser = function(username) {
+        const user = db.users.find(u => u.username === username);
+        editingUser = user.username;
+        
+        el('admin-form-title').innerText = `Edit Account: ${user.username}`;
+        el('new-role').value = user.role;
+        el('new-username').value = user.username;
+        el('new-username').disabled = true; 
+        el('new-password').value = user.password;
+        if (user.role !== 'admin') { el('new-name').value = user.name || ''; el('new-id').value = user.id || ''; }
+        
+        window.toggleAdminFields();
+        el('admin-submit-btn').innerText = "Update Account";
+        show('admin-cancel-btn');
+        window.scrollTo(0, 0);
+    };
+
+    window.cancelUserEdit = function() {
+        editingUser = null;
+        el('admin-form-title').innerText = "Create New Account";
+        el('new-role').value = 'student';
+        el('new-username').value = '';
+        el('new-username').disabled = false;
+        el('new-password').value = '';
+        el('new-name').value = '';
+        el('new-id').value = '';
+        window.toggleAdminFields();
+        el('admin-submit-btn').innerText = "Create Account";
+        hide('admin-cancel-btn');
+    };
+
+    window.deleteUser = function(username) {
+        if (username === currentUser.username) return alert("You cannot delete your currently active account.");
+        if (!confirm(`Are you sure you want to permanently delete the user '${username}'?`)) return;
+
+        db.users = db.users.filter(u => u.username !== username);
+        delete db.access[username]; 
+        db.registrations = db.registrations.filter(r => r.student !== username); 
+
+        saveDb();
+        if (editingUser === username) window.cancelUserEdit();
+        window.renderAdminView();
+    };
+
+    window.renderAdminView = function() {
+        const ul = el('user-list');
+        ul.innerHTML = '';
+        db.users.forEach(u => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div style="flex-grow: 1;">
+                    <strong style="color: var(--brand-primary); font-size: 16px;">${u.username}</strong> - Role: <span style="text-transform: capitalize;">${u.role}</span>
+                    <br><small style="color: #666;">${u.role !== 'admin' ? `Name: ${u.name} | ID: ${u.id}` : 'System Administrator'}</small>
+                </div>
+                <div class="action-group">
+                    <button class="btn-warning" onclick="editUser('${u.username}')">Edit</button>
+                    ${u.username !== currentUser.username ? `<button class="btn-danger" onclick="deleteUser('${u.username}')">Delete</button>` : ''}
+                </div>
+            `;
+            ul.appendChild(li);
+        });
+    };
+
+    // --- PROFESSOR FUNCTIONS ---
+    window.renderProfView = function() {
+        const students = db.users.filter(u => u.role === 'student');
+        const sList = el('prof-student-list');
+        sList.innerHTML = students.length ? '' : '<p>No students found.</p>';
+        
+        students.forEach(s => {
+            const status = db.access[s.username] || 'Pending';
+            const li = document.createElement('li');
+            let statusColor = status === 'Approved' ? '#27ae60' : (status === 'Denied' ? '#c0392b' : '#f39c12');
+            
+            li.innerHTML = `
+                <div style="flex-grow: 1;">
+                    <strong>${s.name}</strong> (${s.id})<br>
+                    Status: <strong style="color: ${statusColor};">${status}</strong>
+                </div>
+                ${status === 'Pending' ? `
+                    <div class="action-group">
+                        <button class="btn-success" onclick="setStudentAccess('${s.username}', 'Approved')">Approve</button>
+                        <button class="btn-danger" onclick="setStudentAccess('${s.username}', 'Denied')">Deny</button>
+                    </div>` : `
+                    <div class="action-group">
+                        <button class="btn-neutral" onclick="setStudentAccess('${s.username}', 'Pending')">Reset Status</button>
+                    </div>`}
+            `;
+            sList.appendChild(li);
+        });
+
+        const tList = el('prof-topics-list');
+        tList.innerHTML = db.topics.length ? '' : '<p>No topics created yet.</p>';
+        db.topics.forEach(t => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span style="flex-grow: 1; font-weight: bold; color: var(--brand-primary); font-size: 15px;">${t.title}</span>
+                <div class="action-group">
+                    <button class="btn-warning" onclick="editTopic('${t.id}')">Edit</button>
+                    <button class="btn-danger" onclick="deleteTopic('${t.id}')">Delete</button>
+                </div>
+            `;
+            tList.appendChild(li);
+        });
+
+        const rList = el('prof-registrations-list');
+        rList.innerHTML = db.registrations.length ? '' : '<p>No registrations yet.</p>';
+        db.registrations.forEach((reg, index) => {
+            const student = db.users.find(u => u.username === reg.student);
+            const topic = db.topics.find(t => t.id === reg.topicId);
+            const li = document.createElement('li');
+            
+            let actionHtml = '';
+            if (reg.status === 'Pending') {
+                actionHtml = `
+                    <div class="action-group">
+                        <button class="btn-success" onclick="processRegistration(${index}, 'Approved')">Approve</button>
+                        <input type="text" id="reg-reason-${index}" class="reason-input" placeholder="Reason for denial...">
+                        <button class="btn-danger" onclick="processRegistration(${index}, 'Denied')">Deny</button>
+                    </div>
+                `;
+            } else {
+                let sColor = reg.status === 'Approved' ? '#27ae60' : '#c0392b';
+                actionHtml = `
+                    <div class="action-group">
+                        <span>Status: <strong style="color:${sColor}">${reg.status}</strong> ${reg.status === 'Denied' && reg.reason ? `(Reason: ${reg.reason})` : ''}</span>
+                        <button class="btn-neutral" style="margin-left: 10px;" onclick="resetRegistration(${index})">Reset</button>
+                    </div>
+                `;
+            }
+
+            li.innerHTML = `
+                <div style="flex-grow: 1; margin-right: 15px;">
+                    <strong>Student:</strong> ${student ? student.name : reg.student} <br>
+                    <strong>Topic:</strong> ${topic ? topic.title : '<span style="color:#e74c3c">Topic Deleted</span>'}
+                </div>
+                ${actionHtml}
+            `;
+            rList.appendChild(li);
+        });
+    };
+
+    window.setStudentAccess = function(username, status) {
+        db.access[username] = status;
+        saveDb();
+        window.renderProfView();
+    };
+
+    window.submitTopic = function() {
+        const title = el('new-topic-title').value.trim();
+        if (!title) return alert("Topic title cannot be empty.");
+        
+        if (editingTopicId) {
+            const topic = db.topics.find(t => t.id === editingTopicId);
+            if (topic) topic.title = title;
+        } else {
+            db.topics.push({ id: Date.now().toString(), title: title });
+        }
+        
+        saveDb();
+        window.cancelTopicEdit();
+        window.renderProfView();
+    };
+
+    window.editTopic = function(topicId) {
+        const topic = db.topics.find(t => t.id === topicId);
+        editingTopicId = topicId;
+        el('topic-form-title').innerText = "Edit Topic Title";
+        el('new-topic-title').value = topic.title;
+        el('topic-submit-btn').innerText = "Update Topic";
+        show('topic-cancel-btn');
+    };
+
+    window.cancelTopicEdit = function() {
+        editingTopicId = null;
+        el('topic-form-title').innerText = "New Topic Title";
+        el('new-topic-title').value = '';
+        el('topic-submit-btn').innerText = "Publish Topic";
+        hide('topic-cancel-btn');
+    };
+
+    window.deleteTopic = function(topicId) {
+        if (!confirm("Are you sure you want to delete this topic? Any student registrations for this topic will also be removed.")) return;
+        db.topics = db.topics.filter(t => t.id !== topicId);
+        db.registrations = db.registrations.filter(r => r.topicId !== topicId);
+        saveDb();
+        if (editingTopicId === topicId) window.cancelTopicEdit();
+        window.renderProfView();
+    };
+
+    window.processRegistration = function(index, status) {
+        let reason = "";
+        if (status === 'Denied') {
+            reason = el(`reg-reason-${index}`).value.trim();
+            if (!reason) return alert("You must provide a reason for denying this registration.");
+        }
+        db.registrations[index].status = status;
+        db.registrations[index].reason = reason;
+        saveDb();
+        window.renderProfView();
+    };
+    
+    window.resetRegistration = function(index) {
+        db.registrations[index].status = 'Pending';
+        db.registrations[index].reason = '';
+        saveDb();
+        window.renderProfView();
+    };
+
+    // --- STUDENT FUNCTIONS ---
+    window.renderStudentView = function() {
+        const myReg = db.registrations.find(r => r.student === currentUser.username);
+        const statDiv = el('my-registration-status');
+        
+        if (myReg) {
+            const topic = db.topics.find(t => t.id === myReg.topicId);
+            if (!topic) {
+                statDiv.innerHTML = `<span style="color: #e74c3c;"><strong>Alert:</strong> The topic you registered for was deleted by a professor. Please register for a new topic.</span>`;
+                db.registrations = db.registrations.filter(r => r.topicId !== myReg.topicId);
+                saveDb();
+                window.attemptViewTopics(); 
+            } else {
+                let sColor = myReg.status === 'Approved' ? '#27ae60' : (myReg.status === 'Denied' ? '#c0392b' : '#f39c12');
+                let statHtml = `<div style="font-size: 16px;"><strong>Topic:</strong> <span style="color: var(--brand-primary); font-weight: 500;">${topic.title}</span><br><strong>Status:</strong> <span style="color:${sColor}; font-weight:bold;">${myReg.status}</span></div>`;
+                
+                if (myReg.status === 'Denied' && myReg.reason) {
+                    statHtml += `<div style="margin-top: 8px; padding: 10px; background: #fdf2f2; border-left: 4px solid #c0392b;"><strong>Professor's Note:</strong> <span style="color:#c0392b;">${myReg.reason}</span></div>`;
+                }
+                
+                statHtml += `<br><button class="btn-warning" onclick="cancelRegistration()">Cancel & Choose New Topic</button>`;
+                statDiv.innerHTML = statHtml;
+            }
+        } else {
+            statDiv.innerHTML = "No active registrations.";
+        }
+    };
+
+    window.attemptViewTopics = function() {
+        const msgEl = el('student-msg');
+        const status = db.access[currentUser.username] || 'Pending';
+        msgEl.className = 'alert hidden';
+
+        if (status === 'Approved') {
+            hide('student-msg');
+            show('student-topics-section');
+            window.renderStudentTopics();
+        } else if (status === 'Denied') {
+            msgEl.classList.add('alert-danger');
+            msgEl.innerHTML = `<strong>Access Denied:</strong> Your access to view thesis topics has been restricted by the faculty.`;
+            show('student-msg');
+            hide('student-topics-section');
+        } else {
+            msgEl.classList.add('alert-warning');
+            msgEl.innerText = "Please wait for faculty approval to view and register for research topics.";
+            show('student-msg');
+            hide('student-topics-section');
+        }
+    };
+
+    window.renderStudentTopics = function() {
+        const list = el('student-topics-list');
+        list.innerHTML = db.topics.length ? '' : '<p>No research topics published yet.</p>';
+        const hasExistingReg = db.registrations.find(r => r.student === currentUser.username);
+
+        db.topics.forEach(t => {
+            const li = document.createElement('li');
+            let btnHtml = hasExistingReg 
+                ? `<span style="color:#7f8c8d; font-size: 13px; font-weight: 500;">(Already Registered)</span>` 
+                : `<button class="btn-success" onclick="registerForTopic('${t.id}')">Register</button>`;
+            li.innerHTML = `<span style="font-weight: 500; font-size: 15px; color: #333;">${t.title}</span> ${btnHtml}`;
+            list.appendChild(li);
+        });
+    };
+
+    window.registerForTopic = function(topicId) {
+        db.registrations.push({ student: currentUser.username, topicId: topicId, status: 'Pending', reason: '' });
+        saveDb();
+        alert("Registration submitted to faculty successfully!");
+        window.renderStudentView();
+        window.attemptViewTopics(); 
+    };
+    
+    window.cancelRegistration = function() {
+        if (!confirm("Are you sure you want to withdraw your current thesis registration? You will need to select a topic again.")) return;
+        db.registrations = db.registrations.filter(r => r.student !== currentUser.username);
+        saveDb();
+        window.renderStudentView();
+        window.attemptViewTopics();
+    };
+
+    // Kickstart the app by fetching from Firebase
+    initializeDatabase();
+
+</script>
+</body>
+</html>
