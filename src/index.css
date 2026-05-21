@@ -339,3 +339,53 @@ button:disabled {
   width: 100%;
   min-height: 100vh;
 }
+
+/* Mobile Optimization */
+@media (max-width: 768px) {
+
+  /* 1. Stack all grid containers vertically */
+  .grid-container {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* 2. Adjust Navbar for portrait screens */
+  .navbar {
+    flex-direction: column;
+    height: auto;
+    padding: 15px;
+    text-align: center;
+  }
+
+  .user-controls {
+    margin-top: 10px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* 3. Make buttons easier to tap with fingers */
+  button {
+    width: 100%;
+    padding: 14px !important;
+    font-size: 16px;
+  }
+
+  /* 4. Fix input fields so they don't overflow */
+  input,
+  select {
+    width: 100%;
+    padding: 12px;
+    box-sizing: border-box;
+  }
+
+  /* 5. Reduce side padding on mobile */
+  .container {
+    padding: 10px !important;
+  }
+
+  /* 6. Fix the login box width */
+  .classic-login-box {
+    width: 90% !important;
+    padding: 20px !important;
+  }
+}
