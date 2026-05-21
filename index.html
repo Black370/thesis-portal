@@ -1,33 +1,17 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Graduation Thesis Portal</title>
-    <style>
-        /* ... your existing CSS ... */
-    </style>
 </head>
 
 <body>
-    <script>
-        // 1. Define the variables and functions FIRST
-        const API_BASE_URL = 'https://thesis-api-4tuf.onrender.com';
-        let db = { users: [], classes: [], topics: [], classAccess: [], registrations: [] };
-        // ... (include all your other variables here) ...
+    <div id="root"></div>
 
-        async function loadDb() {
-            // ... your existing code ...
-        }
-
-        // ... (include all your other functions: login, renderDashboard, etc.) ...
-
-        // 2. ONLY AFTER EVERYTHING IS DEFINED, call the listener
-        document.addEventListener('DOMContentLoaded', () => {
-            loadDb();
-        });
-    </script>
+    <script type="module" src="/src/main.jsx"></script>
 </body>
 
 </html>
