@@ -1,5 +1,5 @@
 // Made private (const) so other files cannot accidentally manipulate it
-const BASE_URL = 'https://thesis-api-4tuf.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export async function apiFetch(endpoint, method = 'GET', body = null) {
     // 1. Tell the browser to attach the HttpOnly cookies automatically!
