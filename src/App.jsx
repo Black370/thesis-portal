@@ -7,7 +7,8 @@ export default function App() {
   const [db, setDb] = useState({ users: [], classes: [], topics: [], classAccess: [], registrations: [] });
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false); // Handles the login button cold start state
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const loadData = async () => {
     try {
@@ -35,7 +36,7 @@ export default function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
-    setIsLoggingIn(true); // Lock input lines and initiate wake-up indicator
+    setIsLoggingIn(true);
     const username = e.target.username.value;
     const password = e.target.password.value;
 
@@ -45,20 +46,28 @@ export default function App() {
       localStorage.setItem('hustUserProfile', JSON.stringify(data.user));
       await loadData();
     } catch (err) {
-      setLoginError('Invalid credentials.');
+      if (err.message.includes("Failed to fetch") || err.message.includes("Gateway")) {
+        setLoginError('Server is initializing cloud database connections. Please click Sign In again.');
+      } else {
+        setLoginError(err.message || 'Invalid credentials.');
+      }
     } finally {
-      setIsLoggingIn(false); // Release input locks
+      setIsLoggingIn(false);
     }
   };
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       await apiFetch('/api/logout', 'POST');
-    } catch (e) { console.error("Logout error", e); }
-
-    setCurrentUser(null);
-    setDb({ users: [], classes: [], topics: [], classAccess: [], registrations: [] });
-    localStorage.removeItem('hustUserProfile');
+    } catch (e) {
+      console.error("Logout error", e);
+    } finally {
+      setCurrentUser(null);
+      setDb({ users: [], classes: [], topics: [], classAccess: [], registrations: [] });
+      localStorage.removeItem('hustUserProfile');
+      setIsLoggingOut(false);
+    }
   };
 
   if (loading) {
@@ -114,7 +123,9 @@ export default function App() {
           <span id="user-greeting">
             {currentUser.role === 'admin' ? 'System Administrator' : `${currentUser.name} (ID: ${currentUser.id})`}
           </span>
-          <button onClick={handleLogout} style={{ padding: '6px 12px', background: 'rgba(0,0,0,0.3) !important', border: '1px solid rgba(255,255,255,0.4) !important' }}>Logout</button>
+          <button onClick={handleLogout} disabled={isLoggingOut} style={{ padding: '6px 12px', background: 'rgba(0,0,0,0.3) !important', border: '1px solid rgba(255,255,255,0.4) !important' }}>
+            {isLoggingOut ? "Waking up server..." : "Logout"}
+          </button>
         </div>
       </div>
 
