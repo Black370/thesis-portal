@@ -418,7 +418,7 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
                             const classInfo = topic ? db.classes.find(c => c.id === topic.classId) : null;
                             const runRegAction = async (status, reason = '') => {
                                 setIsSubmitting(true);
-                                try { await apiFetch(`/api/registrations`, 'POST', { student: reg.student, topicId: reg.topicId, status, reason }); refreshDb(); } catch (e) { } finally { sig = false; setIsSubmitting(false); }
+                                try { await apiFetch(`/api/registrations`, 'POST', { student: reg.student, topicId: reg.topicId, status, reason }); refreshDb(); } catch (e) { } finally { setIsSubmitting(false); }
                             };
                             return (
                                 <div key={reg.student} className="grid-card">
