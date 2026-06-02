@@ -7,10 +7,10 @@ export default function App() {
   const [db, setDb] = useState({ users: [], classes: [], topics: [], classAccess: [], registrations: [] });
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false); // Handles the login button cold start state
 
   const loadData = async () => {
     try {
-      // No token needed! Cookies handle it securely.
       const data = await apiFetch('/api/data', 'GET');
       setDb(data);
     } catch (e) {
@@ -21,7 +21,6 @@ export default function App() {
 
   useEffect(() => {
     const init = async () => {
-      // We only save the basic user profile for the UI, NOT the token!
       const savedSession = localStorage.getItem('hustUserProfile');
       if (savedSession) {
         const user = JSON.parse(savedSession);
@@ -36,24 +35,24 @@ export default function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
+    setIsLoggingIn(true); // Lock input lines and initiate wake-up indicator
     const username = e.target.username.value;
     const password = e.target.password.value;
 
     try {
-      // Using your new secure apiFetch instead of raw fetch
       const data = await apiFetch('/api/login', 'POST', { username, password });
-
       setCurrentUser(data.user);
       localStorage.setItem('hustUserProfile', JSON.stringify(data.user));
       await loadData();
     } catch (err) {
       setLoginError('Invalid credentials.');
+    } finally {
+      setIsLoggingIn(false); // Release input locks
     }
   };
 
   const handleLogout = async () => {
     try {
-      // Tell the backend to actively destroy the secure cookies
       await apiFetch('/api/logout', 'POST');
     } catch (e) { console.error("Logout error", e); }
 
@@ -67,8 +66,8 @@ export default function App() {
       <div className="container">
         <div id="loading-screen" className="login-wrapper">
           <div className="login-hero-container" style={{ maxWidth: '400px', padding: '40px', textAlign: 'center' }}>
-            <h2 style={{ border: 'none', marginTop: '0' }}>Connecting to Database...</h2>
-            <p style={{ color: '#555' }}>Please wait.</p>
+            <h2 style={{ border: 'none', marginTop: '0' }}>Waking up server...</h2>
+            <p style={{ color: '#555' }}>Please wait for cloud database containers to initialize.</p>
           </div>
         </div>
       </div>
@@ -90,13 +89,15 @@ export default function App() {
                 {loginError && <div id="login-error" className="alert alert-warning">{loginError}</div>}
                 <div className="form-group">
                   <label>Username</label>
-                  <input type="text" id="login-username" name="username" placeholder="Enter your username..." />
+                  <input type="text" id="login-username" name="username" placeholder="Enter your username..." disabled={isLoggingIn} />
                 </div>
                 <div className="form-group">
                   <label>Password</label>
-                  <input type="password" id="login-password" name="password" placeholder="Enter your password..." />
+                  <input type="password" id="login-password" name="password" placeholder="Enter your password..." disabled={isLoggingIn} />
                 </div>
-                <button type="submit" style={{ width: '100%', marginTop: '15px' }}>Sign In</button>
+                <button type="submit" style={{ width: '100%', marginTop: '15px' }} disabled={isLoggingIn}>
+                  {isLoggingIn ? "Waking up server..." : "Sign In"}
+                </button>
               </form>
             </div>
           </div>
@@ -119,7 +120,6 @@ export default function App() {
 
       <div className="container">
         <div id="dashboard-view">
-          {/* Notice the tokens are completely removed from these components! */}
           {currentUser.role === 'admin' && <AdminDash db={db} refreshDb={() => loadData()} currentUser={currentUser} />}
           {currentUser.role === 'professor' && <ProfessorDash db={db} refreshDb={() => loadData()} currentUser={currentUser} />}
           {currentUser.role === 'student' && <StudentDash db={db} refreshDb={() => loadData()} currentUser={currentUser} />}

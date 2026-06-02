@@ -5,21 +5,19 @@ import { apiFetch, getBadge } from './api';
 export function AdminDash({ db, refreshDb, currentUser }) {
     const [createForm, setCreateForm] = useState({ role: 'student', username: '', password: '', name: '', id: '' });
     const [editForm, setEditForm] = useState({ role: 'student', username: '', password: '', name: '', id: '' });
-
     const [editingUser, setEditingUser] = useState(null);
 
-    // Split messages
     const [createMsg, setCreateMsg] = useState('');
     const [editMsg, setEditMsg] = useState('');
     const [modifySearch, setModifySearch] = useState({ name: '', id: '' });
 
-    // --- NEW PAGINATION STATES ---
     const [paginatedUsers, setPaginatedUsers] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [isSubmitting, setIsSubmitting] = useState(false); // Global panel submission lock state
 
-    // --- PAGINATION FETCH FUNCTION ---
     const loadUserPage = async (pageNumber) => {
+        setIsSubmitting(true);
         try {
             const data = await apiFetch(`/api/users/paginated?page=${pageNumber}&limit=5`);
             setPaginatedUsers(data.users);
@@ -27,10 +25,11 @@ export function AdminDash({ db, refreshDb, currentUser }) {
             setTotalPages(data.totalPages);
         } catch (e) {
             console.error("Failed to load page", e);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
-    // Load the first page automatically when the Admin dashboard opens
     useEffect(() => {
         loadUserPage(1);
     }, []);
@@ -40,34 +39,35 @@ export function AdminDash({ db, refreshDb, currentUser }) {
         if (!createForm.password) return alert("Password required for new accounts.");
         if (createForm.role !== 'admin' && (!createForm.name || !createForm.id)) return alert("Name and ID are required for students and professors.");
 
+        setIsSubmitting(true);
         try {
-            // Note: If you implement strict pagination later, you may want to move this username check to the backend
             if (db.users.find(u => u.username === createForm.username)) return alert("Username already exists.");
 
             await apiFetch(`/api/users`, 'POST', createForm);
-
             setCreateMsg("Account created successfully!");
             setTimeout(() => setCreateMsg(''), 3000);
 
             refreshDb();
-            loadUserPage(currentPage); // Reload the current page to show the new user if they belong here
+            loadUserPage(currentPage);
             setCreateForm({ role: 'student', username: '', password: '', name: '', id: '' });
         } catch (e) { alert(e.message); }
+        finally { setIsSubmitting(false); }
     };
 
     const handleUpdate = async () => {
         if (editForm.role !== 'admin' && (!editForm.name || !editForm.id)) return alert("Name and ID are required for students and professors.");
 
+        setIsSubmitting(true);
         try {
             await apiFetch(`/api/users/${editingUser}`, 'PUT', editForm);
-
             setEditMsg("Account updated successfully!");
             setTimeout(() => setEditMsg(''), 3000);
 
             refreshDb();
-            loadUserPage(currentPage); // Reload current page to reflect the edit
+            loadUserPage(currentPage);
             setTimeout(() => cancelEdit(), 3000);
         } catch (e) { alert(e.message); }
+        finally { setIsSubmitting(false); }
     };
 
     const editUser = (u) => {
@@ -87,10 +87,14 @@ export function AdminDash({ db, refreshDb, currentUser }) {
         if (username === currentUser.username) return alert("You cannot delete your currently active account.");
         if (!confirm(`Are you sure you want to permanently delete the user '${username}'?`)) return;
 
-        await apiFetch(`/api/users/${username}`, 'DELETE');
-        refreshDb();
-        loadUserPage(currentPage); // Refresh list after deletion
-        if (editingUser === username) cancelEdit();
+        setIsSubmitting(true);
+        try {
+            await apiFetch(`/api/users/${username}`, 'DELETE');
+            refreshDb();
+            loadUserPage(currentPage);
+            if (editingUser === username) cancelEdit();
+        } catch (e) { console.error(e); }
+        finally { setIsSubmitting(false); }
     };
 
     const filterUsers = (users, searchCriteria) => {
@@ -101,12 +105,10 @@ export function AdminDash({ db, refreshDb, currentUser }) {
         });
     };
 
-    // Filter against our paginated chunk, not the whole database
     const filteredForModify = filterUsers(paginatedUsers || [], modifySearch);
 
     return (
         <div id="admin-dashboard">
-
             {/* CREATE ACCOUNT PANEL */}
             <details className="glass-panel" open>
                 <summary className="accordion-header">Create New Account</summary>
@@ -114,7 +116,7 @@ export function AdminDash({ db, refreshDb, currentUser }) {
                     <div className="grid-container" style={{ gridTemplateColumns: '1fr 1fr', alignItems: 'end' }}>
                         <div className="form-group">
                             <label>Role</label>
-                            <select value={createForm.role} onChange={e => setCreateForm({ ...createForm, role: e.target.value })}>
+                            <select value={createForm.role} disabled={isSubmitting} onChange={e => setCreateForm({ ...createForm, role: e.target.value })}>
                                 <option value="student">Student</option>
                                 <option value="professor">Professor</option>
                                 <option value="admin">Admin</option>
@@ -122,33 +124,35 @@ export function AdminDash({ db, refreshDb, currentUser }) {
                         </div>
                         <div className="form-group">
                             <label>Username</label>
-                            <input type="text" value={createForm.username} onChange={e => setCreateForm({ ...createForm, username: e.target.value })} />
+                            <input type="text" value={createForm.username} disabled={isSubmitting} onChange={e => setCreateForm({ ...createForm, username: e.target.value })} />
                         </div>
                         <div className="form-group">
                             <label>Password</label>
-                            <input type="password" placeholder="Enter password..." value={createForm.password} onChange={e => setCreateForm({ ...createForm, password: e.target.value })} />
+                            <input type="password" placeholder="Enter password..." value={createForm.password} disabled={isSubmitting} onChange={e => setCreateForm({ ...createForm, password: e.target.value })} />
                         </div>
                         {createForm.role !== 'admin' && (
                             <>
                                 <div className="form-group">
                                     <label>Full Name</label>
-                                    <input type="text" value={createForm.name} onChange={e => setCreateForm({ ...createForm, name: e.target.value })} />
+                                    <input type="text" value={createForm.name} disabled={isSubmitting} onChange={e => setCreateForm({ ...createForm, name: e.target.value })} />
                                 </div>
                                 <div className="form-group">
                                     <label>Official ID Number</label>
-                                    <input type="text" value={createForm.id} onChange={e => setCreateForm({ ...createForm, id: e.target.value })} />
+                                    <input type="text" value={createForm.id} disabled={isSubmitting} onChange={e => setCreateForm({ ...createForm, id: e.target.value })} />
                                 </div>
                             </>
                         )}
                         <div className="action-group" style={{ marginBottom: '20px' }}>
-                            <button onClick={handleCreate}>Create Account</button>
+                            <button onClick={handleCreate} disabled={isSubmitting}>
+                                {isSubmitting ? "Waking up server..." : "Create Account"}
+                            </button>
                         </div>
                     </div>
                     <p style={{ color: 'var(--brand-primary)', fontWeight: 'bold' }}>{createMsg}</p>
                 </div>
             </details>
 
-            {/* EDIT ACCOUNT PANEL (Only visible when editing) */}
+            {/* EDIT ACCOUNT PANEL */}
             {editingUser && (
                 <details className="glass-panel" open style={{ border: '2px solid #3498db' }}>
                     <summary className="accordion-header" style={{ color: '#3498db' }}>Editing Account: {editingUser}</summary>
@@ -156,7 +160,7 @@ export function AdminDash({ db, refreshDb, currentUser }) {
                         <div className="grid-container" style={{ gridTemplateColumns: '1fr 1fr', alignItems: 'end' }}>
                             <div className="form-group">
                                 <label>Role</label>
-                                <select value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })}>
+                                <select value={editForm.role} disabled={isSubmitting} onChange={e => setEditForm({ ...editForm, role: e.target.value })}>
                                     <option value="student">Student</option>
                                     <option value="professor">Professor</option>
                                     <option value="admin">Admin</option>
@@ -168,23 +172,25 @@ export function AdminDash({ db, refreshDb, currentUser }) {
                             </div>
                             <div className="form-group">
                                 <label>New Password (Optional)</label>
-                                <input type="password" placeholder="Leave blank to keep current password" value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} />
+                                <input type="password" placeholder="Leave blank to keep current password" value={editForm.password} disabled={isSubmitting} onChange={e => setEditForm({ ...editForm, password: e.target.value })} />
                             </div>
                             {editForm.role !== 'admin' && (
                                 <>
                                     <div className="form-group">
                                         <label>Full Name</label>
-                                        <input type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
+                                        <input type="text" value={editForm.name} disabled={isSubmitting} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
                                     </div>
                                     <div className="form-group">
                                         <label>Official ID Number</label>
-                                        <input type="text" value={editForm.id} onChange={e => setEditForm({ ...editForm, id: e.target.value })} />
+                                        <input type="text" value={editForm.id} disabled={isSubmitting} onChange={e => setEditForm({ ...editForm, id: e.target.value })} />
                                     </div>
                                 </>
                             )}
                             <div className="action-group" style={{ marginBottom: '20px' }}>
-                                <button onClick={handleUpdate} style={{ background: '#3498db!important' }}>Update Account</button>
-                                <button onClick={cancelEdit} style={{ background: '#7f8c8d!important' }}>Cancel Edit</button>
+                                <button onClick={handleUpdate} style={{ background: '#3498db!important' }} disabled={isSubmitting}>
+                                    {isSubmitting ? "Waking up server..." : "Update Account"}
+                                </button>
+                                <button onClick={cancelEdit} style={{ background: '#7f8c8d!important' }} disabled={isSubmitting}>Cancel Edit</button>
                             </div>
                         </div>
                         <p style={{ color: '#3498db', fontWeight: 'bold' }}>{editMsg}</p>
@@ -199,11 +205,11 @@ export function AdminDash({ db, refreshDb, currentUser }) {
                     <div className="grid-container" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '25px', paddingBottom: '20px', borderBottom: '1px solid #eee' }}>
                         <div className="form-group" style={{ marginBottom: 0 }}>
                             <label>Search by Full Name</label>
-                            <input type="text" placeholder="Type name..." value={modifySearch.name} onChange={e => setModifySearch({ ...modifySearch, name: e.target.value })} />
+                            <input type="text" placeholder="Type name..." value={modifySearch.name} disabled={isSubmitting} onChange={e => setModifySearch({ ...modifySearch, name: e.target.value })} />
                         </div>
                         <div className="form-group" style={{ marginBottom: 0 }}>
                             <label>Search by ID</label>
-                            <input type="text" placeholder="Type ID..." value={modifySearch.id} onChange={e => setModifySearch({ ...modifySearch, id: e.target.value })} />
+                            <input type="text" placeholder="Type ID..." value={modifySearch.id} disabled={isSubmitting} onChange={e => setModifySearch({ ...modifySearch, id: e.target.value })} />
                         </div>
                     </div>
 
@@ -218,8 +224,8 @@ export function AdminDash({ db, refreshDb, currentUser }) {
                                     </div>
                                 </div>
                                 <div className="action-group">
-                                    <button onClick={() => editUser(u)}>Edit</button>
-                                    {u.username !== currentUser.username ? <button onClick={() => deleteUser(u.username)} style={{ background: '#e74c3c!important' }}>Delete</button> : ''}
+                                    <button onClick={() => editUser(u)} disabled={isSubmitting}>Edit</button>
+                                    {u.username !== currentUser.username ? <button onClick={() => deleteUser(u.username)} style={{ background: '#e74c3c!important' }} disabled={isSubmitting}>Delete</button> : ''}
                                 </div>
                             </div>
                         ))}
@@ -228,23 +234,13 @@ export function AdminDash({ db, refreshDb, currentUser }) {
                     {/* PAGINATION CONTROLS */}
                     {totalPages > 1 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', padding: '15px', background: 'white', borderRadius: '8px', border: '1px solid #eee' }}>
-                            <button
-                                onClick={() => loadUserPage(currentPage - 1)}
-                                disabled={currentPage === 1}
-                                style={{ background: currentPage === 1 ? '#bdc3c7' : '#3498db', margin: 0 }}
-                            >
+                            <button onClick={() => loadUserPage(currentPage - 1)} disabled={currentPage === 1 || isSubmitting} style={{ background: currentPage === 1 ? '#bdc3c7' : '#3498db', margin: 0 }}>
                                 &larr; Previous
                             </button>
-
                             <span style={{ fontWeight: 'bold', color: '#555' }}>
-                                Page {currentPage} of {totalPages}
+                                {isSubmitting ? "Waking up server..." : `Page ${currentPage} of ${totalPages}`}
                             </span>
-
-                            <button
-                                onClick={() => loadUserPage(currentPage + 1)}
-                                disabled={currentPage >= totalPages}
-                                style={{ background: currentPage >= totalPages ? '#bdc3c7' : '#3498db', margin: 0 }}
-                            >
+                            <button onClick={() => loadUserPage(currentPage + 1)} disabled={currentPage >= totalPages || isSubmitting} style={{ background: currentPage >= totalPages ? '#bdc3c7' : '#3498db', margin: 0 }}>
                                 Next &rarr;
                             </button>
                         </div>
@@ -261,6 +257,7 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
     const [editingClassId, setEditingClassId] = useState(null);
     const [topicData, setTopicData] = useState({ title: '', classId: '' });
     const [editingTopicId, setEditingTopicId] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const myClasses = db.classes.filter(c => c.professor === currentUser.username);
     const myClassIds = myClasses.map(c => c.id);
@@ -268,6 +265,7 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
 
     const submitClass = async () => {
         if (!className) return alert("Class name cannot be empty.");
+        setIsSubmitting(true);
         try {
             if (editingClassId) {
                 await apiFetch(`/api/classes/${editingClassId}`, 'PUT', { title: className });
@@ -276,11 +274,13 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
             }
             setClassName(''); setEditingClassId(null); refreshDb();
         } catch (e) { alert(e.message); }
+        finally { setIsSubmitting(false); }
     };
 
     const submitTopic = async () => {
         if (!topicData.title) return alert("Topic title cannot be empty.");
         if (!topicData.classId) return alert("You must create a class first.");
+        setIsSubmitting(true);
         try {
             if (editingTopicId) {
                 await apiFetch(`/api/topics/${editingTopicId}`, 'PUT', topicData);
@@ -289,6 +289,7 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
             }
             setTopicData({ title: '', classId: '' }); setEditingTopicId(null); refreshDb();
         } catch (e) { alert(e.message); }
+        finally { setIsSubmitting(false); }
     };
 
     return (
@@ -299,9 +300,11 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
                     <div className="form-group" style={{ maxWidth: '500px' }}>
                         <label>{editingClassId ? 'Edit Class Title' : 'Enter Your Class'}</label>
                         <div style={{ display: 'flex', gap: '10px' }}>
-                            <input type="text" placeholder="e.g. Computer Science 2026" value={className} onChange={e => setClassName(e.target.value)} />
-                            <button onClick={submitClass}>{editingClassId ? 'Update' : 'Create'}</button>
-                            {editingClassId && <button style={{ background: '#7f8c8d!important' }} onClick={() => { setEditingClassId(null); setClassName(''); }}>Cancel</button>}
+                            <input type="text" placeholder="e.g. Computer Science 2026" value={className} disabled={isSubmitting} onChange={e => setClassName(e.target.value)} />
+                            <button onClick={submitClass} disabled={isSubmitting}>
+                                {isSubmitting ? "Waking up server..." : (editingClassId ? 'Update' : 'Create')}
+                            </button>
+                            {editingClassId && <button style={{ background: '#7f8c8d!important' }} disabled={isSubmitting} onClick={() => { setEditingClassId(null); setClassName(''); }}>Cancel</button>}
                         </div>
                     </div>
                     <h4 style={{ marginTop: '30px', color: '#333' }}>My Active Classes</h4>
@@ -310,8 +313,8 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
                             <div key={c.id} className="grid-card">
                                 <div className="card-header">{c.title}</div>
                                 <div className="action-group">
-                                    <button onClick={() => { setEditingClassId(c.id); setClassName(c.title); }}>Edit</button>
-                                    <button onClick={async () => { if (confirm("Delete this class? All topics and registrations under it will be removed.")) { await apiFetch(`/api/classes/${c.id}`, 'DELETE'); refreshDb(); } }} style={{ background: '#e74c3c!important' }}>Delete</button>
+                                    <button onClick={() => { setEditingClassId(c.id); setClassName(c.title); }} disabled={isSubmitting}>Edit</button>
+                                    <button onClick={async () => { if (confirm("Delete this class? All topics and registrations under it will be removed.")) { setIsSubmitting(true); try { await apiFetch(`/api/classes/${c.id}`, 'DELETE'); refreshDb(); } catch (e) { } finally { setIsSubmitting(false); } } }} style={{ background: '#e74c3c!important' }} disabled={isSubmitting}>Delete</button>
                                 </div>
                             </div>
                         ))}
@@ -325,7 +328,7 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
                     <div className="grid-container" style={{ gridTemplateColumns: '1fr 2fr', alignItems: 'end' }}>
                         <div className="form-group">
                             <label>Select Associated Class</label>
-                            <select value={topicData.classId} onChange={e => setTopicData({ ...topicData, classId: e.target.value })}>
+                            <select value={topicData.classId} disabled={isSubmitting} onChange={e => setTopicData({ ...topicData, classId: e.target.value })}>
                                 <option value="">-- Select --</option>
                                 {myClasses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                             </select>
@@ -333,9 +336,11 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
                         <div className="form-group">
                             <label>New Topic Title</label>
                             <div style={{ display: 'flex', gap: '10px' }}>
-                                <input type="text" placeholder="Enter formal graduation thesis topic..." value={topicData.title} onChange={e => setTopicData({ ...topicData, title: e.target.value })} />
-                                <button onClick={submitTopic} disabled={myClasses.length === 0}>{editingTopicId ? 'Update' : 'Publish'}</button>
-                                {editingTopicId && <button style={{ background: '#7f8c8d!important' }} onClick={() => { setEditingTopicId(null); setTopicData({ title: '', classId: '' }); }}>Cancel</button>}
+                                <input type="text" placeholder="Enter graduation thesis topic..." value={topicData.title} disabled={isSubmitting} onChange={e => setTopicData({ ...topicData, title: e.target.value })} />
+                                <button onClick={submitTopic} disabled={myClasses.length === 0 || isSubmitting}>
+                                    {isSubmitting ? "Waking up server..." : (editingTopicId ? 'Update' : 'Publish')}
+                                </button>
+                                {editingTopicId && <button style={{ background: '#7f8c8d!important' }} disabled={isSubmitting} onClick={() => { setEditingTopicId(null); setTopicData({ title: '', classId: '' }); }}>Cancel</button>}
                             </div>
                         </div>
                     </div>
@@ -350,8 +355,8 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
                                         <div className="card-meta">Class: {className}</div>
                                     </div>
                                     <div className="action-group">
-                                        <button onClick={() => { setEditingTopicId(t.id); setTopicData({ title: t.title, classId: t.classId }); }}>Edit</button>
-                                        <button onClick={async () => { if (confirm("Are you sure you want to archive this topic?")) { await apiFetch(`/api/topics/${t.id}`, 'DELETE'); refreshDb(); } }} style={{ background: '#e74c3c!important' }}>Archive (Delete)</button>
+                                        <button onClick={() => { setEditingTopicId(t.id); setTopicData({ title: t.title, classId: t.classId }); }} disabled={isSubmitting}>Edit</button>
+                                        <button onClick={async () => { if (confirm("Are you sure you want to archive this topic?")) { setIsSubmitting(true); try { await apiFetch(`/api/topics/${t.id}`, 'DELETE'); refreshDb(); } catch (e) { } finally { setIsSubmitting(false); } } }} style={{ background: '#e74c3c!important' }} disabled={isSubmitting}>Archive</button>
                                     </div>
                                 </div>
                             )
@@ -367,6 +372,10 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
                         {db.classAccess.filter(a => myClassIds.includes(a.classId)).map(acc => {
                             const studentInfo = db.users.find(u => u.username === acc.student);
                             const classInfo = db.classes.find(c => c.id === acc.classId);
+                            const runAccessAction = async (status) => {
+                                setIsSubmitting(true);
+                                try { await apiFetch(`/api/access`, 'POST', { student: acc.student, classId: acc.classId, status }); refreshDb(); } catch (e) { } finally { setIsSubmitting(false); }
+                            };
                             return (
                                 <div key={acc.student + acc.classId} className="grid-card">
                                     <div>
@@ -378,12 +387,18 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
                                     </div>
                                     {acc.status === 'Pending' ? (
                                         <div className="action-group">
-                                            <button onClick={async () => { await apiFetch(`/api/access`, 'POST', { student: acc.student, classId: acc.classId, status: 'Approved' }); refreshDb(); }} style={{ background: '#2ecc71!important' }}>Approve</button>
-                                            <button onClick={async () => { await apiFetch(`/api/access`, 'POST', { student: acc.student, classId: acc.classId, status: 'Denied' }); refreshDb(); }} style={{ background: '#e74c3c!important' }}>Deny</button>
+                                            <button onClick={() => runAccessAction('Approved')} style={{ background: '#2ecc71!important' }} disabled={isSubmitting}>
+                                                {isSubmitting ? "Waking up server..." : "Approve"}
+                                            </button>
+                                            <button onClick={() => runAccessAction('Denied')} style={{ background: '#e74c3c!important' }} disabled={isSubmitting}>
+                                                {isSubmitting ? "Waking up server..." : "Deny"}
+                                            </button>
                                         </div>
                                     ) : (
                                         <div className="action-group">
-                                            <button onClick={async () => { await apiFetch(`/api/access`, 'POST', { student: acc.student, classId: acc.classId, status: 'Pending' }); refreshDb(); }} style={{ background: '#95a5a6!important' }}>Reset Status</button>
+                                            <button onClick={() => runAccessAction('Pending')} style={{ background: '#95a5a6!important' }} disabled={isSubmitting}>
+                                                {isSubmitting ? "Waking up server..." : "Reset Status"}
+                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -401,6 +416,10 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
                             const student = db.users.find(u => u.username === reg.student);
                             const topic = db.topics.find(t => t.id === reg.topicId);
                             const classInfo = topic ? db.classes.find(c => c.id === topic.classId) : null;
+                            const runRegAction = async (status, reason = '') => {
+                                setIsSubmitting(true);
+                                try { await apiFetch(`/api/registrations`, 'POST', { student: reg.student, topicId: reg.topicId, status, reason }); refreshDb(); } catch (e) { } finally { sig = false; setIsSubmitting(false); }
+                            };
                             return (
                                 <div key={reg.student} className="grid-card">
                                     <div>
@@ -414,19 +433,25 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
                                     </div>
                                     {reg.status === 'Pending' ? (
                                         <div className="action-group" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                                            <input type="text" id={`reg-reason-${reg.student}`} placeholder="Reason for denial (if applicable)..." style={{ marginBottom: '8px' }} />
+                                            <input type="text" id={`reg-reason-${reg.student}`} placeholder="Reason for denial (if applicable)..." style={{ marginBottom: '8px' }} disabled={isSubmitting} />
                                             <div style={{ display: 'flex', gap: '10px' }}>
-                                                <button style={{ flex: 1, background: '#2ecc71!important' }} onClick={async () => { await apiFetch(`/api/registrations`, 'POST', { student: reg.student, topicId: reg.topicId, status: 'Approved', reason: '' }); refreshDb(); }}>Approve</button>
-                                                <button style={{ flex: 1, background: '#e74c3c!important' }} onClick={async () => {
+                                                <button style={{ flex: 1, background: '#2ecc71!important' }} onClick={() => runRegAction('Approved')} disabled={isSubmitting}>
+                                                    {isSubmitting ? "Waking up server..." : "Approve"}
+                                                </button>
+                                                <button style={{ flex: 1, background: '#e74c3c!important' }} disabled={isSubmitting} onClick={() => {
                                                     const reason = document.getElementById(`reg-reason-${reg.student}`).value.trim();
                                                     if (!reason) return alert("You must provide a reason for denying this registration.");
-                                                    await apiFetch(`/api/registrations`, 'POST', { student: reg.student, topicId: reg.topicId, status: 'Denied', reason }); refreshDb();
-                                                }}>Deny</button>
+                                                    runRegAction('Denied', reason);
+                                                }}>
+                                                    {isSubmitting ? "Waking up server..." : "Deny"}
+                                                </button>
                                             </div>
                                         </div>
                                     ) : (
                                         <div className="action-group">
-                                            <button onClick={async () => { await apiFetch(`/api/registrations`, 'POST', { student: reg.student, topicId: reg.topicId, status: 'Pending', reason: '' }); refreshDb(); }} style={{ background: '#95a5a6!important' }}>Reset to Pending</button>
+                                            <button onClick={() => runRegAction('Pending')} style={{ background: '#95a5a6!important' }} disabled={isSubmitting}>
+                                                {isSubmitting ? "Waking up server..." : "Reset to Pending"}
+                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -441,6 +466,7 @@ export function ProfessorDash({ db, refreshDb, currentUser }) {
 
 // --- STUDENT DASHBOARD COMPONENT ---
 export function StudentDash({ db, refreshDb, currentUser }) {
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const myAccess = db.classAccess.filter(a => a.student === currentUser.username);
     const approvedClassIds = myAccess.filter(a => a.status === 'Approved').map(a => a.classId);
     const availableTopics = db.topics.filter(t => approvedClassIds.includes(t.classId) && !t.isArchived);
@@ -462,7 +488,12 @@ export function StudentDash({ db, refreshDb, currentUser }) {
                                         <div className="card-meta">Professor: {prof ? `${prof.name} (ID: ${prof.id})` : c.professor}</div>
                                     </div>
                                     <div className="action-group">
-                                        {!acc ? <button onClick={async () => { await apiFetch('/api/access', 'POST', { student: currentUser.username, classId: c.id, status: 'Pending' }); alert("Access request sent to the professor."); refreshDb(); }}>Request Access</button> : <div style={{ marginTop: '10px' }}>{getBadge(acc.status)}</div>}
+                                        {!acc ? <button disabled={isSubmitting} onClick={async () => {
+                                            setIsSubmitting(true);
+                                            try { await apiFetch('/api/access', 'POST', { student: currentUser.username, classId: c.id, status: 'Pending' }); alert("Access request sent."); refreshDb(); } catch (e) { } finally { setIsSubmitting(false); }
+                                        }}>
+                                            {isSubmitting ? "Waking up server..." : "Request Access"}
+                                        </button> : <div style={{ marginTop: '10px' }}>{getBadge(acc.status)}</div>}
                                     </div>
                                 </div>
                             )
@@ -487,7 +518,12 @@ export function StudentDash({ db, refreshDb, currentUser }) {
                                             </div>
                                             <div className="action-group">
                                                 {myReg ? <span style={{ color: '#7f8c8d', fontSize: '13px', fontWeight: 600 }}>(Registration Locked)</span> :
-                                                    <button onClick={async () => { await apiFetch('/api/registrations', 'POST', { student: currentUser.username, topicId: t.id, status: 'Pending', reason: '' }); alert("Registration submitted successfully!"); refreshDb(); }}>Register for Topic</button>}
+                                                    <button disabled={isSubmitting} onClick={async () => {
+                                                        setIsSubmitting(true);
+                                                        try { await apiFetch('/api/registrations', 'POST', { student: currentUser.username, topicId: t.id, status: 'Pending', reason: '' }); alert("Registration submitted!"); refreshDb(); } catch (e) { } finally { setIsSubmitting(false); }
+                                                    }}>
+                                                        {isSubmitting ? "Waking up server..." : "Register for Topic"}
+                                                    </button>}
                                             </div>
                                         </div>
                                     )
@@ -508,7 +544,12 @@ export function StudentDash({ db, refreshDb, currentUser }) {
                                         <div style={{ padding: '15px', borderRadius: '4px', backgroundColor: '#f2dede', color: '#a94442', border: '1px solid #ebccd1', marginBottom: '15px' }}>
                                             <strong>Alert:</strong> The topic you registered for was cancelled or archived by the faculty. Please select a new one.
                                         </div>
-                                        <button onClick={async () => { await apiFetch(`/api/registrations/${currentUser.username}`, 'DELETE'); refreshDb(); }}>Acknowledge & Choose New Topic</button>
+                                        <button disabled={isSubmitting} onClick={async () => {
+                                            setIsSubmitting(true);
+                                            try { await apiFetch(`/api/registrations/${currentUser.username}`, 'DELETE'); refreshDb(); } catch (e) { } finally { setIsSubmitting(false); }
+                                        }}>
+                                            {isSubmitting ? "Waking up server..." : "Acknowledge & Choose New Topic"}
+                                        </button>
                                     </>
                                 )
                             }
@@ -521,8 +562,13 @@ export function StudentDash({ db, refreshDb, currentUser }) {
                                         {getBadge(myReg.status)}
                                     </div>
                                     {myReg.status === 'Denied' && myReg.reason && <div style={{ padding: '12px', background: 'rgba(192, 57, 43, 0.05)', borderLeft: '4px solid #c0392b', borderRadius: '4px', marginBottom: '20px' }}><strong>Faculty Feedback:</strong> {myReg.reason}</div>}
-                                    <button onClick={async () => { if (confirm("Are you sure you want to clear your current registration?")) { await apiFetch(`/api/registrations/${currentUser.username}`, 'DELETE'); refreshDb(); } }} style={myReg.status === 'Denied' ? { background: '#e74c3c!important' } : {}}>
-                                        {myReg.status === 'Denied' ? 'Acknowledge & Clear Status' : 'Withdraw Registration'}
+                                    <button onClick={async () => {
+                                        if (confirm("Are you sure you want to clear your current registration?")) {
+                                            setIsSubmitting(true);
+                                            try { await apiFetch(`/api/registrations/${currentUser.username}`, 'DELETE'); refreshDb(); } catch (e) { } finally { setIsSubmitting(false); }
+                                        }
+                                    }} style={myReg.status === 'Denied' ? { background: '#e74c3c!important' } : {}} disabled={isSubmitting}>
+                                        {isSubmitting ? "Waking up server..." : (myReg.status === 'Denied' ? 'Acknowledge & Clear Status' : 'Withdraw Registration')}
                                     </button>
                                 </>
                             )
