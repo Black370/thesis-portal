@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from './api';
 import { AdminDash, ProfessorDash, StudentDash } from './Dashboards';
+import AiAssistant from './AiAssistant';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -85,33 +86,36 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div className="container">
-        <div id="login-view" className="login-wrapper">
-          <div className="login-hero-container">
-            <div className="login-hero-header">
-              <h1>Graduation Thesis Portal</h1>
-              <p>University Academic System</p>
-            </div>
-            <div className="login-hero-body">
-              <form className="classic-login-box" onSubmit={handleLogin}>
-                <h2 className="login-title">Portal Login</h2>
-                {loginError && <div id="login-error" className="alert alert-warning">{loginError}</div>}
-                <div className="form-group">
-                  <label>Username</label>
-                  <input type="text" id="login-username" name="username" placeholder="Enter your username..." disabled={isLoggingIn} />
-                </div>
-                <div className="form-group">
-                  <label>Password</label>
-                  <input type="password" id="login-password" name="password" placeholder="Enter your password..." disabled={isLoggingIn} />
-                </div>
-                <button type="submit" style={{ width: '100%', marginTop: '15px' }} disabled={isLoggingIn}>
-                  {isLoggingIn ? "Waking up server..." : "Sign In"}
-                </button>
-              </form>
+      <>
+        <div className="container">
+          <div id="login-view" className="login-wrapper">
+            <div className="login-hero-container">
+              <div className="login-hero-header">
+                <h1>Graduation Thesis Portal</h1>
+                <p>University Academic System</p>
+              </div>
+              <div className="login-hero-body">
+                <form className="classic-login-box" onSubmit={handleLogin}>
+                  <h2 className="login-title">Portal Login</h2>
+                  {loginError && <div id="login-error" className="alert alert-warning">{loginError}</div>}
+                  <div className="form-group">
+                    <label>Username</label>
+                    <input type="text" id="login-username" name="username" placeholder="Enter your username..." disabled={isLoggingIn} />
+                  </div>
+                  <div className="form-group">
+                    <label>Password</label>
+                    <input type="password" id="login-password" name="password" placeholder="Enter your password..." disabled={isLoggingIn} />
+                  </div>
+                  <button type="submit" style={{ width: '100%', marginTop: '15px' }} disabled={isLoggingIn}>
+                    {isLoggingIn ? "Waking up server..." : "Sign In"}
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+        <AiAssistant key="login" currentUser={null} />
+      </>
     );
   }
 
@@ -136,6 +140,8 @@ export default function App() {
           {currentUser.role === 'student' && <StudentDash db={db} refreshDb={() => loadData()} currentUser={currentUser} />}
         </div>
       </div>
+
+      <AiAssistant key={`user-${currentUser.username}`} currentUser={currentUser} />
     </>
   );
 }
