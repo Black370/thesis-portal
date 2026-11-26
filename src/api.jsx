@@ -1,5 +1,6 @@
 // Made private (const) so other files cannot accidentally manipulate it
-const BASE_URL = 'https://thesis-api-4tuf.onrender.com'
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://thesis-api-4tuf.onrender.com').replace(/\/+$/, '');
+const PUBLIC_ENDPOINTS = ['/api/login', '/api/logout', '/api/assistant'];
 
 export async function apiFetch(endpoint, method = 'GET', body = null) {
     // 1. Tell the browser to attach the HttpOnly cookies automatically!
@@ -11,11 +12,13 @@ export async function apiFetch(endpoint, method = 'GET', body = null) {
 
     if (body) config.body = JSON.stringify(body);
 
+    const isPublicEndpoint = PUBLIC_ENDPOINTS.some(path => endpoint.startsWith(path));
+
     try {
         let response = await fetch(`${BASE_URL}${endpoint}`, config);
 
         // 2. THE SILENT RETRY LOGIC (401 or 403 means the 15-min token died)
-        if (response.status === 401 || response.status === 403) {
+        if (!isPublicEndpoint && (response.status === 401 || response.status === 403)) {
             console.warn("Access token expired. Attempting silent refresh...");
             const refreshResponse = await fetch(`${BASE_URL}/api/refresh`, {
                 method: 'POST',
