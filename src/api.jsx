@@ -1,5 +1,5 @@
-// Made private (const) so other files cannot accidentally manipulate it
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://thesis-api-4tuf.onrender.com').replace(/\/+$/, '');
+// Uses VITE_API_BASE_URL in local dev; in production, relative /api/* is proxied via vercel.json for first-party cookies
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 const PUBLIC_ENDPOINTS = ['/api/login', '/api/logout', '/api/assistant'];
 
 export async function apiFetch(endpoint, method = 'GET', body = null) {
