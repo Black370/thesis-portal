@@ -1,6 +1,10 @@
 {
     "rewrites": [
         {
+            "source": "/api/:path*",
+            "destination": "https://thesis-api-4tuf.onrender.com/api/:path*"
+        },
+        {
             "source": "/(.*)",
             "destination": "/index.html"
         }

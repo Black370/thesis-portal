@@ -325,6 +325,8 @@ export default function AiAssistant({ currentUser }) {
     const [headPos, setHeadPos] = useState(null);
     const [isDraggingHead, setIsDraggingHead] = useState(false);
     const headDragRef = useRef({ active: false, moved: false, startX: 0, startY: 0, origX: 0, origY: 0 });
+    const suppressHeadClickRef = useRef(false);
+    const openedAtRef = useRef(0);
 
     const [widgetPos, setWidgetPos] = useState(null);
     const [isDraggingWidget, setIsDraggingWidget] = useState(false);
@@ -354,6 +356,7 @@ export default function AiAssistant({ currentUser }) {
     }, []);
 
     const openChat = () => {
+        openedAtRef.current = Date.now();
         setIsOpen(true);
         setShowTeaser(false);
         setUnreadCount(0);
@@ -365,6 +368,7 @@ export default function AiAssistant({ currentUser }) {
 
     const handleHeadPointerDown = (e) => {
         if (e.button !== 0 && e.pointerType === 'mouse') return;
+        suppressHeadClickRef.current = false;
         const rect = e.currentTarget.getBoundingClientRect();
         headDragRef.current = {
             active: true,
@@ -400,9 +404,17 @@ export default function AiAssistant({ currentUser }) {
             e.currentTarget.releasePointerCapture(e.pointerId);
         }
 
-        if (!wasDragged) {
-            openChat();
+        if (wasDragged) {
+            suppressHeadClickRef.current = true;
         }
+    };
+
+    const handleHeadClick = () => {
+        if (suppressHeadClickRef.current) {
+            suppressHeadClickRef.current = false;
+            return;
+        }
+        openChat();
     };
 
     const handleWidgetPointerDown = (e) => {
@@ -539,6 +551,7 @@ export default function AiAssistant({ currentUser }) {
                     onPointerMove={handleHeadPointerMove}
                     onPointerUp={handleHeadPointerUp}
                     onPointerCancel={handleHeadPointerUp}
+                    onClick={handleHeadClick}
                     aria-label={unreadCount > 0 ? `Open Portal Guide (${unreadCount} new messages)` : 'Open Portal Guide'}
                     title="Portal Guide — Click to chat or drag anywhere"
                 >
@@ -634,7 +647,10 @@ export default function AiAssistant({ currentUser }) {
                             type="button"
                             className="ai-suggest-item"
                             disabled={isSending}
-                            onClick={() => sendMessage(suggestion === 'System overview' ? 'overview' : suggestion)}
+                            onClick={() => {
+                                if (Date.now() - openedAtRef.current < 350) return;
+                                sendMessage(suggestion === 'System overview' ? 'overview' : suggestion);
+                            }}
                         >
                             <svg className="ai-suggest-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                                 <path
